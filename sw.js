@@ -1,14 +1,12 @@
-const CACHE = 'senku-stream-v1';
+const CACHE = 'senku-stream-v2';
 
-// App shell — files to cache on install
+// Use relative paths — works on any GitHub Pages subpath
 const SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/logo.png',
+  './index.html',
+  './manifest.json',
+  './logo.png',
 ];
 
-// ── Install: cache app shell ──
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(cache => cache.addAll(SHELL))
@@ -16,7 +14,6 @@ self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
-// ── Activate: clean old caches ──
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -26,11 +23,10 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// ── Fetch strategy ──
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // For TMDB API calls and external embeds → always network, no caching
+  // Always network for external resources
   if (
     url.hostname.includes('themoviedb.org') ||
     url.hostname.includes('image.tmdb.org') ||
@@ -41,22 +37,22 @@ self.addEventListener('fetch', e => {
     url.hostname.includes('fonts.googleapis') ||
     url.hostname.includes('fonts.gstatic')
   ) {
-    e.respondWith(fetch(e.request).catch(() => new Response('', {status: 503})));
+    e.respondWith(
+      fetch(e.request).catch(() => new Response('', { status: 503 }))
+    );
     return;
   }
 
-  // For app shell files → cache-first, fallback to network
+  // Cache-first for app shell
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
-        // Cache new valid responses
         if (res && res.status === 200 && e.request.method === 'GET') {
-          const clone = res.clone();
-          caches.open(CACHE).then(cache => cache.put(e.request, clone));
+          caches.open(CACHE).then(cache => cache.put(e.request, res.clone()));
         }
         return res;
-      }).catch(() => caches.match('/index.html'));
+      }).catch(() => caches.match('./index.html'));
     })
   );
 });
